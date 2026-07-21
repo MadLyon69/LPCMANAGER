@@ -32,23 +32,41 @@ prix pour imprimante thermique.
 ## Stack technique
 
 - [Next.js](https://nextjs.org) (App Router, Server Actions) + TypeScript
-- [Prisma](https://www.prisma.io) + SQLite (fichier local, aucune base
-  externe à configurer)
+- [Prisma](https://www.prisma.io) + PostgreSQL
 - Tailwind CSS
 - `papaparse` / `xlsx` pour le parsing des fichiers d'import
 - `jsbarcode` pour la génération des codes-barres sur les étiquettes
 
 ## Démarrage
 
+Nécessite une base PostgreSQL accessible (locale via Docker/PostgreSQL
+installé, ou un service en ligne gratuit comme [Neon](https://neon.tech)).
+
 ```bash
-cp .env.example .env # définit DATABASE_URL (base SQLite locale)
+cp .env.example .env # renseigner DATABASE_URL avec votre base PostgreSQL
 npm install           # installe les dépendances et génère le client Prisma
-npm run db:migrate    # crée la base SQLite locale (prisma/dev.db)
+npm run db:migrate    # crée les tables
 npm run db:seed       # ajoute les catégories de base et les réglages par défaut
 npm run dev           # démarre le serveur de développement
 ```
 
 Ouvrez [http://localhost:3000](http://localhost:3000).
+
+## Déploiement (hébergement en ligne, accessible depuis plusieurs appareils)
+
+1. Créer une base PostgreSQL gratuite sur [neon.tech](https://neon.tech)
+   et copier la chaîne de connexion.
+2. Depuis votre machine, avec `DATABASE_URL` pointant vers cette base
+   Neon (dans `.env`), exécuter `npm run db:migrate:deploy` puis
+   `npm run db:seed` pour créer les tables et les catégories de base.
+3. Créer un compte sur [vercel.com](https://vercel.com), importer ce
+   dépôt GitHub comme nouveau projet.
+4. Dans les réglages du projet Vercel, ajouter la variable
+   d'environnement `DATABASE_URL` avec la même chaîne de connexion Neon.
+5. Déployer. À chaque `git push` sur la branche connectée, Vercel
+   redéploie automatiquement — toujours sur la même base de données,
+   donc les données restent synchronisées quel que soit l'appareil
+   utilisé pour se connecter.
 
 ## Réglages
 
