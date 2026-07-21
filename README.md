@@ -65,10 +65,12 @@ est recommandée pour permettre le rapprochement automatique avec les
 produits déjà en catalogue ; sans elle, les lignes sont importées comme
 non référencées et doivent être résolues manuellement.
 
-Les factures PDF sont également supportées pour certains formats connus
-(actuellement le format "rapport colonnes" de METRO France, avec
-extraction du code EAN, de la désignation, de la quantité, du prix
-d'achat HT et du taux de TVA). Seuls les PDF avec du texte sélectionnable
-sont pris en charge (pas les scans/images). Pour un autre fournisseur PDF,
-le parseur peut nécessiter un ajustement (`src/lib/pdfInvoice.ts`) — à
-défaut, préférez un export CSV/Excel si votre fournisseur en propose un.
+Les factures PDF sont également supportées pour plusieurs formats
+fournisseurs connus (détection automatique) : METRO France, Auchan
+(Drive) et Carrefour. Le code EAN, la désignation, la quantité livrée,
+le prix d'achat HT (net des remises ligne) et le taux de TVA sont
+extraits automatiquement. Seuls les PDF avec du texte sélectionnable
+sont pris en charge (pas les scans/images). Pour un autre fournisseur
+PDF, le parseur peut nécessiter un ajustement (`src/lib/pdfInvoice.ts`)
+— à défaut, préférez un export CSV/Excel si votre fournisseur en
+propose un.

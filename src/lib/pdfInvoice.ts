@@ -74,13 +74,12 @@ async function extractPdfLines(buffer: ArrayBuffer): Promise<string[]> {
 }
 
 /**
- * Parseur pour les factures fournisseur au format "rapport colonnes"
- * (ex: METRO France) : EAN, numéro article, désignation, colonnes
- * variables selon la catégorie de produit, puis colisage/quantité/
- * montant/code TVA en fin de ligne. Le code TVA (lettre) est résolu via
- * le barème rappelé en bas de facture (ex: "B = 5,50%", "D = 20,00%").
+ * METRO France : rapport colonnes EAN / numéro article / désignation,
+ * colonnes variables selon la catégorie de produit, puis colisage /
+ * quantité / montant / code TVA en fin de ligne. Le code TVA (lettre)
+ * est résolu via le barème rappelé en bas de facture (ex: "B = 5,50%").
  */
-function parseColumnarInvoiceLines(lines: string[]): PdfInvoiceRow[] {
+function parseMetroLines(lines: string[]): PdfInvoiceRow[] {
   const fullText = lines.join("\n");
 
   const tvaMap: Record<string, number> = {};
@@ -123,7 +122,202 @@ function parseColumnarInvoiceLines(lines: string[]): PdfInvoiceRow[] {
   return rows;
 }
 
+const AUCHAN_STOP_PATTERNS = [
+  /^\d+\s*\/\s*\d+\s*$/,
+  /Votre commande/,
+  /Votre facture/,
+  /Id Waaoh/,
+  /Référence/,
+  /Caractéristiques produit/,
+  /Prix U\./,
+  /Remises U\./,
+  /Taux TVA/,
+  /Cagnotte/,
+  /\(HT\)/,
+  /\(TTC\)/,
+  /^Total/,
+  /Service Clients/,
+  /code-barres/,
+];
+
+/**
+ * Auchan Drive : Référence / désignation (parfois sur 2 lignes) / Prix U.
+ * HT / Remise U. HT (optionnelle) / Qté / Prix total Net HT / Taux TVA /
+ * Cagnotte Waaoh (optionnelle) / Prix total Net TTC.
+ */
+function parseAuchanLines(lines: string[]): PdfInvoiceRow[] {
+  const lineRegex =
+    /^\s*(\d{8,14})\s+(.+?)\s+(\d+,\d{2})\s+(?:(\d+,\d{2})\s+)?(\d+)\s+(\d+,\d{2})\s+(20,00|10,00|5,50|2,10|0,00)\s+(?:(\d+,\d{2})\s+)?(\d+,\d{2})\s*$/;
+
+  const isStop = (line: string) => {
+    const t = line.trim();
+    if (!t) return true;
+    return AUCHAN_STOP_PATTERNS.some((re) => re.test(t));
+  };
+
+  const rows: PdfInvoiceRow[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].replace(/\s+$/, "");
+    const match = line.match(lineRegex);
+    if (!match) continue;
+    const [, ref, designationRaw, , , qte, prixTotalHT, tva] = match;
+
+    let designation = designationRaw.trim();
+    const next = lines[i + 1];
+    if (next !== undefined && !isStop(next) && !next.match(lineRegex)) {
+      designation += " " + next.trim();
+    }
+    if (!designation) continue;
+
+    const qteN = parseInt(qte, 10);
+    const montantN = parseFrenchNumber(prixTotalHT);
+    if (!qteN || !montantN) continue;
+
+    rows.push({
+      rawReference: ref,
+      rawDesignation: designation,
+      quantity: qteN,
+      purchasePriceHT: Math.round((montantN / qteN) * 10000) / 10000,
+      tvaRate: parseFrenchNumber(tva),
+    });
+  }
+
+  return rows;
+}
+
+const CARREFOUR_STOP_PATTERNS = [
+  /^\d+\s*\/\s*\d+\s*$/,
+  /Une question sur votre facture/,
+  /Pour toutes demandes/,
+  /commande, veuillez/,
+  /client sur Carrefour/,
+  /Rubrique Aide/,
+  /Date de commande/,
+  /Adresse de facturation/,
+  /Date de livraison/,
+  /Date de facturation/,
+  /Merci de bien noter/,
+  /facturés\. Les sacs/,
+  /Merci pour votre commande/,
+  /articles réceptionnés/,
+  /^Qté/,
+  /^Code EAN13/,
+  /^Cdée/,
+  /Nb sac\(s\)/,
+  /La présente facture/,
+  /Aucun escompte/,
+  /non-respect de l'échéance/,
+  /indemnité forfaitaire/,
+  /Avertissement/,
+  /SASU/,
+  /^RCS :/,
+  /Malgré tous les efforts/,
+  /proposé des produits/,
+];
+
+/**
+ * Carrefour (livraison/drive) : EAN13 / libellé (parfois avant ou après
+ * la ligne de chiffres selon le nombre de lignes du libellé) / Qté
+ * commandée / Qté livrée / TVA% / Prix Unit. HT / Prix Unit. TTC /
+ * Remise TTC (optionnelle) / Montant TTC. La quantité retenue est la
+ * quantité livrée, et le prix d'achat HT est déduit du montant TTC net
+ * (après remise ligne) pour rester cohérent même en cas de remise.
+ * La section récapitulative "articles indisponibles" en fin de facture
+ * ne fait que reprendre des lignes déjà comptées : elle est ignorée.
+ */
+function parseCarrefourLines(lines: string[]): PdfInvoiceRow[] {
+  const lineRegex =
+    /^\s*(\d{8,14})\s*(.*?)\s+(\d+)\s+(\d+)\s+(\d+\.\d)\s+(\d+\.\d{2})\s+(\d+\.\d{2})\s+(?:(\d+\.\d{2})\s+)?(\d+\.\d{2})\s*$/;
+
+  const isStop = (line: string) => {
+    const t = line.trim();
+    if (!t) return true;
+    return CARREFOUR_STOP_PATTERNS.some((re) => re.test(t));
+  };
+
+  const rows: PdfInvoiceRow[] = [];
+  let stopped = false;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].replace(/\s+$/, "");
+    if (/articles étaient indisponibles/.test(line)) {
+      stopped = true;
+    }
+    if (stopped) continue;
+
+    const match = line.match(lineRegex);
+    if (!match) continue;
+    const [, ean, designationInline, , qteLivree, tva, , , , montantTTC] = match;
+
+    const qteN = parseInt(qteLivree, 10);
+    const montantN = parseFloat(montantTTC);
+    if (!qteN || !montantN) continue;
+
+    let designation = designationInline.trim();
+    if (!designation) {
+      const prev = lines[i - 1];
+      if (prev !== undefined && !isStop(prev) && !prev.match(lineRegex)) {
+        designation = prev.trim();
+      }
+      const next = lines[i + 1];
+      if (next !== undefined && !isStop(next) && !next.match(lineRegex)) {
+        designation = (designation + " " + next.trim()).trim();
+      }
+    }
+    if (!designation) continue;
+
+    const tvaRate = parseFrenchNumber(tva);
+    const montantHT = montantN / (1 + tvaRate / 100);
+
+    rows.push({
+      rawReference: ean,
+      rawDesignation: designation,
+      quantity: qteN,
+      purchasePriceHT: Math.round((montantHT / qteN) * 10000) / 10000,
+      tvaRate,
+    });
+  }
+
+  return rows;
+}
+
+type SupplierFormat = "metro" | "auchan" | "carrefour";
+
+function detectFormat(fullText: string): SupplierFormat | null {
+  if (/METRO France|Numéro Agrément Sanitaire|PRIX AU KG OU AU LITRE/i.test(fullText)) {
+    return "metro";
+  }
+  if (/AUCHAN|Waaoh/i.test(fullText)) {
+    return "auchan";
+  }
+  if (/Carrefour|Code EAN13/i.test(fullText)) {
+    return "carrefour";
+  }
+  return null;
+}
+
+const PARSERS: Record<SupplierFormat, (lines: string[]) => PdfInvoiceRow[]> = {
+  metro: parseMetroLines,
+  auchan: parseAuchanLines,
+  carrefour: parseCarrefourLines,
+};
+
 export async function parsePdfInvoice(buffer: ArrayBuffer): Promise<PdfInvoiceRow[]> {
   const lines = await extractPdfLines(buffer);
-  return parseColumnarInvoiceLines(lines);
+  const fullText = lines.join("\n");
+
+  const detected = detectFormat(fullText);
+  if (detected) {
+    const rows = PARSERS[detected](lines);
+    if (rows.length > 0) return rows;
+  }
+
+  // Format non détecté avec certitude (ou échec) : on tente chaque
+  // parseur connu et on retient celui qui produit le plus de lignes.
+  let best: PdfInvoiceRow[] = [];
+  for (const parser of Object.values(PARSERS)) {
+    const rows = parser(lines);
+    if (rows.length > best.length) best = rows;
+  }
+  return best;
 }
