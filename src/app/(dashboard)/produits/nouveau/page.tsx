@@ -10,6 +10,7 @@ export default async function NouveauProduitPage({
     reference?: string;
     designation?: string;
     purchasePriceHT?: string;
+    tvaRate?: string;
     sourceLineId?: string;
   }>;
 }) {
@@ -32,6 +33,7 @@ export default async function NouveauProduitPage({
           purchasePriceHT: params.purchasePriceHT
             ? Number(params.purchasePriceHT)
             : undefined,
+          tvaRate: params.tvaRate ? Number(params.tvaRate) : undefined,
           sourceLineId: params.sourceLineId,
         }}
       />

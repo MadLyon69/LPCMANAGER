@@ -14,12 +14,14 @@ prix pour imprimante thermique.
   - *Prix imposé* (tabac) : le prix de vente TTC est saisi directement
     (imposé par le fabricant), la marge est recalculée à titre indicatif.
 - **Fournisseurs** : gestion simple (CRUD).
-- **Import de factures** (CSV/Excel) : mapping des colonnes à l'écran,
-  détection automatique des produits déjà référencés, détection des
-  hausses/baisses de prix d'achat par rapport au dernier prix connu,
-  mise à jour automatique du stock, et signalement des produits non
-  référencés à traiter (créer un nouveau produit ou associer à un produit
-  existant).
+- **Import de factures** (CSV/Excel, ou PDF pour les fournisseurs
+  supportés comme METRO France) : mapping des colonnes à l'écran (CSV/
+  Excel) ou extraction automatique des lignes avec détection du taux de
+  TVA (PDF), détection automatique des produits déjà référencés,
+  détection des hausses/baisses de prix d'achat par rapport au dernier
+  prix connu, mise à jour automatique du stock, et signalement des
+  produits non référencés à traiter (créer un nouveau produit ou
+  associer à un produit existant).
 - **Historique des prix** par produit.
 - **Étiquettes prix** : sélection multi-produits, génération d'une planche
   imprimable avec code-barres, au format configurable (par défaut 30×20 mm)
@@ -62,3 +64,11 @@ désignation et une colonne prix d'achat HT. Une colonne référence/code-barres
 est recommandée pour permettre le rapprochement automatique avec les
 produits déjà en catalogue ; sans elle, les lignes sont importées comme
 non référencées et doivent être résolues manuellement.
+
+Les factures PDF sont également supportées pour certains formats connus
+(actuellement le format "rapport colonnes" de METRO France, avec
+extraction du code EAN, de la désignation, de la quantité, du prix
+d'achat HT et du taux de TVA). Seuls les PDF avec du texte sélectionnable
+sont pris en charge (pas les scans/images). Pour un autre fournisseur PDF,
+le parseur peut nécessiter un ajustement (`src/lib/pdfInvoice.ts`) — à
+défaut, préférez un export CSV/Excel si votre fournisseur en propose un.

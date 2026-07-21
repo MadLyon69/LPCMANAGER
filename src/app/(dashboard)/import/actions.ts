@@ -5,13 +5,22 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { priceVariationPct, sellPriceFromMargin } from "@/lib/pricing";
+import { parsePdfInvoice, type PdfInvoiceRow } from "@/lib/pdfInvoice";
 
 const importRowSchema = z.object({
   rawReference: z.string().trim().optional(),
   rawDesignation: z.string().trim().min(1),
   quantity: z.coerce.number(),
   purchasePriceHT: z.coerce.number().min(0),
+  tvaRate: z.coerce.number().min(0).max(100).optional(),
 });
+
+export async function parsePdfInvoiceFile(formData: FormData): Promise<PdfInvoiceRow[]> {
+  const file = formData.get("file") as File | null;
+  if (!file) throw new Error("Aucun fichier fourni");
+  const buffer = await file.arrayBuffer();
+  return parsePdfInvoice(buffer);
+}
 
 export async function importInvoice(formData: FormData) {
   const supplierId = (formData.get("supplierId") as string) || undefined;
@@ -51,6 +60,7 @@ export async function importInvoice(formData: FormData) {
           rawDesignation: row.rawDesignation,
           quantity: row.quantity,
           purchasePriceHT: row.purchasePriceHT,
+          tvaRate: row.tvaRate ?? null,
           productId: match?.id,
           previousPriceHT: match?.purchasePriceHT ?? null,
           priceVariationPct: variation,

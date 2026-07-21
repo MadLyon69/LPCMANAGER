@@ -86,6 +86,7 @@ export default async function ImportDetailPage({
                   rawReference={line.rawReference}
                   rawDesignation={line.rawDesignation}
                   purchasePriceHT={line.purchasePriceHT}
+                  tvaRate={line.tvaRate}
                   products={products}
                 />
               </div>

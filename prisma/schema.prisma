@@ -88,6 +88,7 @@ model InvoiceLine {
   rawDesignation     String
   quantity           Float
   purchasePriceHT    Float
+  tvaRate            Float?
 
   productId          String?
   product            Product? @relation(fields: [productId], references: [id], onDelete: SetNull)

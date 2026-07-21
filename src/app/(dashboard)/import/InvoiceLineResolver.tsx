@@ -12,12 +12,14 @@ export function InvoiceLineResolver({
   rawReference,
   rawDesignation,
   purchasePriceHT,
+  tvaRate,
   products,
 }: {
   lineId: string;
   rawReference?: string | null;
   rawDesignation: string;
   purchasePriceHT: number;
+  tvaRate?: number | null;
   products: ProductOption[];
 }) {
   const [selected, setSelected] = useState("");
@@ -25,7 +27,9 @@ export function InvoiceLineResolver({
 
   const newProductHref = `/produits/nouveau?reference=${encodeURIComponent(
     rawReference ?? ""
-  )}&designation=${encodeURIComponent(rawDesignation)}&purchasePriceHT=${purchasePriceHT}&sourceLineId=${lineId}`;
+  )}&designation=${encodeURIComponent(rawDesignation)}&purchasePriceHT=${purchasePriceHT}${
+    tvaRate != null ? `&tvaRate=${tvaRate}` : ""
+  }&sourceLineId=${lineId}`;
 
   return (
     <div className="flex items-center gap-2">

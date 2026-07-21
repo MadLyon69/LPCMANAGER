@@ -41,6 +41,7 @@ type NewProductDefaults = {
   reference?: string;
   designation?: string;
   purchasePriceHT?: number;
+  tvaRate?: number;
   sourceLineId?: string;
 };
 
@@ -60,7 +61,7 @@ export function ProductForm({
   const [purchaseHT, setPurchaseHT] = useState(
     product?.purchasePriceHT ?? defaults?.purchasePriceHT ?? 0
   );
-  const [tvaRate, setTvaRate] = useState(product?.tvaRate ?? 20);
+  const [tvaRate, setTvaRate] = useState(product?.tvaRate ?? defaults?.tvaRate ?? 20);
   const [priceMode, setPriceMode] = useState<"MARGE_LIBRE" | "PRIX_IMPOSE">(
     product?.priceMode ?? "MARGE_LIBRE"
   );
