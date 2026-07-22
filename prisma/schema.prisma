@@ -133,3 +133,14 @@ model Settings {
   defaultTvaRate    Float @default(20)
   defaultMarginRate Float @default(30)
 }
+
+model DailyRevenue {
+  id        String   @id @default(cuid())
+  date      DateTime @unique @db.Date
+  amountTTC Float
+  note      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([date])
+}

@@ -8,6 +8,7 @@ const links = [
   { href: "/produits", label: "Produits", icon: "📦" },
   { href: "/fournisseurs", label: "Fournisseurs", icon: "🚚" },
   { href: "/import", label: "Import factures", icon: "📥" },
+  { href: "/chiffre-affaires", label: "Chiffre d'affaires", icon: "💶" },
   { href: "/etiquettes", label: "Étiquettes", icon: "🏷️" },
   { href: "/reglages", label: "Réglages", icon: "⚙️" },
 ];
