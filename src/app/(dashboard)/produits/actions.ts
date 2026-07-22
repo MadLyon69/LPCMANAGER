@@ -20,6 +20,8 @@ const productSchema = z.object({
   stockAlertSeuil: z.coerce.number().min(0),
   unit: z.string().trim().min(1),
   unitsPerPackage: z.coerce.number().min(1).default(1),
+  contentValue: z.coerce.number().min(0).optional(),
+  contentUnit: z.string().trim().optional(),
   actif: z.coerce.boolean().optional(),
 });
 
@@ -38,6 +40,8 @@ function parseProductForm(formData: FormData) {
     stockAlertSeuil: formData.get("stockAlertSeuil") || 0,
     unit: formData.get("unit") || "unite",
     unitsPerPackage: formData.get("unitsPerPackage") || 1,
+    contentValue: formData.get("contentValue") || undefined,
+    contentUnit: formData.get("contentUnit") || undefined,
     actif: formData.get("actif") ? true : false,
   };
   const parsed = productSchema.parse(raw);
@@ -66,6 +70,8 @@ function parseProductForm(formData: FormData) {
     stockAlertSeuil: parsed.stockAlertSeuil,
     unit: parsed.unit,
     unitsPerPackage: parsed.unitsPerPackage,
+    contentValue: parsed.contentUnit && parsed.contentValue ? parsed.contentValue : null,
+    contentUnit: parsed.contentUnit || null,
     actif: parsed.actif ?? true,
   };
 }

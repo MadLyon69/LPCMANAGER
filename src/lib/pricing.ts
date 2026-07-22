@@ -45,3 +45,24 @@ export function formatPct(value: number): string {
     maximumFractionDigits: 2,
   }).format(value)} %`;
 }
+
+const CONTENT_UNIT_TO_BASE: Record<string, { base: "kg" | "L"; factor: number }> = {
+  kg: { base: "kg", factor: 1 },
+  g: { base: "kg", factor: 0.001 },
+  l: { base: "L", factor: 1 },
+  ml: { base: "L", factor: 0.001 },
+};
+
+/** Prix ramené au kilo ou au litre (ex: "4,66 €/L"), pour l'affichage sur les étiquettes. */
+export function unitPriceLabel(
+  sellPriceTTC: number,
+  contentValue?: number | null,
+  contentUnit?: string | null
+): string | null {
+  if (!contentValue || contentValue <= 0 || !contentUnit) return null;
+  const conv = CONTENT_UNIT_TO_BASE[contentUnit];
+  if (!conv) return null;
+  const baseQuantity = contentValue * conv.factor;
+  if (baseQuantity <= 0) return null;
+  return `${formatEUR(sellPriceTTC / baseQuantity)}/${conv.base}`;
+}

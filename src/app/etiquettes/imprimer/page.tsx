@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { getSettings } from "@/lib/settings";
+import { unitPriceLabel } from "@/lib/pricing";
 import { LabelSheet, type LabelItem } from "./LabelSheet";
 
 function parseItems(raw: string | undefined): Array<{ id: string; qty: number }> {
@@ -30,11 +31,17 @@ export default async function ImprimerEtiquettesPage({
   const labels: LabelItem[] = selection.flatMap(({ id, qty }) => {
     const product = byId.get(id);
     if (!product) return [];
+    const unitPrice = unitPriceLabel(
+      product.sellPriceTTC,
+      product.contentValue,
+      product.contentUnit
+    );
     return Array.from({ length: qty }, (_, i) => ({
       key: `${id}-${i}`,
       reference: product.reference,
       designation: product.designation,
       priceTTC: product.sellPriceTTC,
+      unitPrice,
     }));
   });
 

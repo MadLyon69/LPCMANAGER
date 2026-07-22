@@ -9,6 +9,7 @@ export type LabelItem = {
   reference: string;
   designation: string;
   priceTTC: number;
+  unitPrice: string | null;
 };
 
 export function LabelSheet({
@@ -91,6 +92,11 @@ export function LabelSheet({
             <p className="text-center text-[13px] font-bold leading-none text-gray-900">
               {formatEUR(item.priceTTC)}
             </p>
+            {item.unitPrice && (
+              <p className="w-full truncate text-center text-[6px] leading-tight text-gray-500">
+                soit {item.unitPrice}
+              </p>
+            )}
             <svg
               ref={(el) => {
                 if (el) svgRefs.current.set(item.key, el);

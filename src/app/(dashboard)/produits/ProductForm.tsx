@@ -13,6 +13,7 @@ import {
   marginFromSellPrice,
   purchasePriceTTC,
   sellPriceFromMargin,
+  unitPriceLabel,
 } from "@/lib/pricing";
 
 type Option = { id: string; nom: string };
@@ -32,11 +33,19 @@ type Product = {
   stockAlertSeuil: number;
   unit: string;
   unitsPerPackage: number;
+  contentValue: number | null;
+  contentUnit: string | null;
   actif: boolean;
 };
 
 const TVA_RATES = [20, 10, 5.5, 0];
 const UNITS = ["unite", "paquet", "carton", "cartouche", "litre", "kg"];
+const CONTENT_UNITS = [
+  { value: "kg", label: "kg" },
+  { value: "g", label: "g" },
+  { value: "l", label: "L" },
+  { value: "ml", label: "mL" },
+];
 
 type NewProductDefaults = {
   reference?: string;
@@ -86,6 +95,8 @@ export function ProductForm({
   const [unitsPerPackage, setUnitsPerPackage] = useState(product?.unitsPerPackage ?? 1);
   const [stockQuantity, setStockQuantity] = useState(product?.stockQuantity ?? 0);
   const [stockAlertSeuil, setStockAlertSeuil] = useState(product?.stockAlertSeuil ?? 0);
+  const [contentValue, setContentValue] = useState(product?.contentValue ?? 0);
+  const [contentUnit, setContentUnit] = useState(product?.contentUnit ?? "");
 
   const computedMargin =
     priceMode === "PRIX_IMPOSE" ? marginFromSellPrice(purchaseHT, tvaRate, sellTTC) : marginRate;
@@ -286,6 +297,41 @@ export function ProductForm({
             >
               <DecimalInput value={unitsPerPackage} onValueChange={handleUnitsPerPackageChange} />
               <input type="hidden" name="unitsPerPackage" value={unitsPerPackage} />
+            </Field>
+          </div>
+        </div>
+
+        <div className="border-t border-gray-100 pt-4">
+          <p className="mb-3 text-sm font-semibold text-gray-900">
+            Contenance (prix au kg / au litre)
+          </p>
+          <div className="grid grid-cols-3 gap-4">
+            <Field label="Contenance">
+              <DecimalInput value={contentValue} onValueChange={setContentValue} />
+              <input type="hidden" name="contentValue" value={contentValue} />
+            </Field>
+            <Field label="Unité de contenance">
+              <Select
+                name="contentUnit"
+                value={contentUnit}
+                onChange={(e) => setContentUnit(e.target.value)}
+              >
+                <option value="">—</option>
+                {CONTENT_UNITS.map((u) => (
+                  <option key={u.value} value={u.value}>
+                    {u.label}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <Field
+              label="Prix unitaire (calculé)"
+              hint="Ex: 1,5 L pour une bouteille → prix au litre affiché sur l'étiquette."
+            >
+              <Input
+                value={unitPriceLabel(sellTTC, contentValue, contentUnit || null) ?? "—"}
+                disabled
+              />
             </Field>
           </div>
         </div>

@@ -19,10 +19,16 @@ enum MouvementType {
   SORTIE
 }
 
+enum PeriodType {
+  JOUR
+  MOIS
+}
+
 model Category {
-  id       String    @id @default(cuid())
-  nom      String    @unique
-  products Product[]
+  id             String         @id @default(cuid())
+  nom            String         @unique
+  products       Product[]
+  revenueEntries RevenueEntry[]
 }
 
 model Supplier {
@@ -57,6 +63,11 @@ model Product {
   stockAlertSeuil Float     @default(0)
   unit            String    @default("unite")
   unitsPerPackage Float     @default(1)
+
+  // Contenance (ex: 1.5 pour une bouteille de 1,5 L) utilisée pour afficher
+  // le prix au kilo / au litre sur les étiquettes.
+  contentValue    Float?
+  contentUnit     String?
 
   actif           Boolean   @default(true)
   createdAt       DateTime  @default(now())
@@ -134,13 +145,20 @@ model Settings {
   defaultMarginRate Float @default(30)
 }
 
-model DailyRevenue {
-  id        String   @id @default(cuid())
-  date      DateTime @unique @db.Date
-  amountTTC Float
-  note      String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+model RevenueEntry {
+  id         String     @id @default(cuid())
+  // Pour une saisie mensuelle, `date` est le 1er jour du mois concerné.
+  date       DateTime   @db.Date
+  periodType PeriodType @default(JOUR)
+  categoryId String?
+  category   Category?  @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  // Laisser vide (null) pour une saisie globale non ventilée par TVA.
+  tvaRate    Float?
+  amountTTC  Float
+  note       String?
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
 
   @@index([date])
+  @@index([categoryId])
 }
