@@ -19,6 +19,7 @@ const productSchema = z.object({
   stockQuantity: z.coerce.number(),
   stockAlertSeuil: z.coerce.number().min(0),
   unit: z.string().trim().min(1),
+  unitsPerPackage: z.coerce.number().min(1).default(1),
   actif: z.coerce.boolean().optional(),
 });
 
@@ -36,6 +37,7 @@ function parseProductForm(formData: FormData) {
     stockQuantity: formData.get("stockQuantity") || 0,
     stockAlertSeuil: formData.get("stockAlertSeuil") || 0,
     unit: formData.get("unit") || "unite",
+    unitsPerPackage: formData.get("unitsPerPackage") || 1,
     actif: formData.get("actif") ? true : false,
   };
   const parsed = productSchema.parse(raw);
@@ -63,6 +65,7 @@ function parseProductForm(formData: FormData) {
     stockQuantity: parsed.stockQuantity,
     stockAlertSeuil: parsed.stockAlertSeuil,
     unit: parsed.unit,
+    unitsPerPackage: parsed.unitsPerPackage,
     actif: parsed.actif ?? true,
   };
 }
@@ -85,19 +88,20 @@ export async function createProduct(formData: FormData) {
   if (sourceLineId) {
     const line = await prisma.invoiceLine.findUnique({ where: { id: sourceLineId } });
     if (line) {
+      const packQuantity = line.quantity / product.unitsPerPackage;
       await prisma.invoiceLine.update({
         where: { id: sourceLineId },
         data: { productId: product.id, resolved: true },
       });
       await prisma.product.update({
         where: { id: product.id },
-        data: { stockQuantity: { increment: line.quantity } },
+        data: { stockQuantity: { increment: packQuantity } },
       });
       await prisma.stockMovement.create({
         data: {
           productId: product.id,
           type: "ENTREE_FACTURE",
-          quantity: line.quantity,
+          quantity: packQuantity,
           note: "Création depuis import facture",
         },
       });

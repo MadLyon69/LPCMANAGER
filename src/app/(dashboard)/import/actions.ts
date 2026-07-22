@@ -49,8 +49,16 @@ export async function importInvoice(formData: FormData) {
         ? byRef.get(row.rawReference.trim().toLowerCase())
         : undefined;
 
+      // Le prix/quantité de la facture sont exprimés par unité individuelle ;
+      // on les convertit à l'unité de stock du produit (ex: prix par pack de 6)
+      // pour rester cohérent avec purchasePriceHT/stockQuantity du produit.
+      const effectiveQuantity = match ? row.quantity / match.unitsPerPackage : row.quantity;
+      const effectivePurchasePriceHT = match
+        ? row.purchasePriceHT * match.unitsPerPackage
+        : row.purchasePriceHT;
+
       const variation = match
-        ? priceVariationPct(match.purchasePriceHT, row.purchasePriceHT)
+        ? priceVariationPct(match.purchasePriceHT, effectivePurchasePriceHT)
         : null;
 
       await tx.invoiceLine.create({
@@ -71,22 +79,22 @@ export async function importInvoice(formData: FormData) {
       if (match) {
         const newSellPriceTTC =
           match.priceMode === "MARGE_LIBRE"
-            ? sellPriceFromMargin(row.purchasePriceHT, match.tvaRate, match.marginRate)
+            ? sellPriceFromMargin(effectivePurchasePriceHT, match.tvaRate, match.marginRate)
             : match.sellPriceTTC;
 
         const updated = await tx.product.update({
           where: { id: match.id },
           data: {
-            purchasePriceHT: row.purchasePriceHT,
+            purchasePriceHT: effectivePurchasePriceHT,
             sellPriceTTC: newSellPriceTTC,
-            stockQuantity: match.stockQuantity + row.quantity,
+            stockQuantity: match.stockQuantity + effectiveQuantity,
           },
         });
 
         await tx.priceHistory.create({
           data: {
             productId: match.id,
-            purchasePriceHT: row.purchasePriceHT,
+            purchasePriceHT: effectivePurchasePriceHT,
             sellPriceTTC: updated.sellPriceTTC,
             source: numero ? `facture ${numero}` : "facture",
           },
@@ -96,7 +104,7 @@ export async function importInvoice(formData: FormData) {
           data: {
             productId: match.id,
             type: "ENTREE_FACTURE",
-            quantity: row.quantity,
+            quantity: effectiveQuantity,
             note: fileName,
           },
         });
@@ -119,10 +127,13 @@ export async function resolveInvoiceLine(lineId: string, productId: string) {
   const line = await prisma.invoiceLine.findUniqueOrThrow({ where: { id: lineId } });
   const product = await prisma.product.findUniqueOrThrow({ where: { id: productId } });
 
-  const variation = priceVariationPct(product.purchasePriceHT, line.purchasePriceHT);
+  const effectiveQuantity = line.quantity / product.unitsPerPackage;
+  const effectivePurchasePriceHT = line.purchasePriceHT * product.unitsPerPackage;
+
+  const variation = priceVariationPct(product.purchasePriceHT, effectivePurchasePriceHT);
   const newSellPriceTTC =
     product.priceMode === "MARGE_LIBRE"
-      ? sellPriceFromMargin(line.purchasePriceHT, product.tvaRate, product.marginRate)
+      ? sellPriceFromMargin(effectivePurchasePriceHT, product.tvaRate, product.marginRate)
       : product.sellPriceTTC;
 
   await prisma.$transaction([
@@ -138,15 +149,15 @@ export async function resolveInvoiceLine(lineId: string, productId: string) {
     prisma.product.update({
       where: { id: productId },
       data: {
-        purchasePriceHT: line.purchasePriceHT,
+        purchasePriceHT: effectivePurchasePriceHT,
         sellPriceTTC: newSellPriceTTC,
-        stockQuantity: product.stockQuantity + line.quantity,
+        stockQuantity: product.stockQuantity + effectiveQuantity,
       },
     }),
     prisma.priceHistory.create({
       data: {
         productId,
-        purchasePriceHT: line.purchasePriceHT,
+        purchasePriceHT: effectivePurchasePriceHT,
         sellPriceTTC: newSellPriceTTC,
         source: "facture (résolution manuelle)",
       },
@@ -155,7 +166,7 @@ export async function resolveInvoiceLine(lineId: string, productId: string) {
       data: {
         productId,
         type: "ENTREE_FACTURE",
-        quantity: line.quantity,
+        quantity: effectiveQuantity,
         note: "Résolution import",
       },
     }),

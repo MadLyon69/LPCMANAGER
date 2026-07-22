@@ -31,6 +31,7 @@ type Product = {
   stockQuantity: number;
   stockAlertSeuil: number;
   unit: string;
+  unitsPerPackage: number;
   actif: boolean;
 };
 
@@ -61,6 +62,8 @@ export function ProductForm({
   const [purchaseHT, setPurchaseHT] = useState(
     product?.purchasePriceHT ?? defaults?.purchasePriceHT ?? 0
   );
+  const [unitsPerPackage, setUnitsPerPackage] = useState(product?.unitsPerPackage ?? 1);
+  const rawUnitPriceHT = defaults?.sourceLineId ? defaults?.purchasePriceHT : undefined;
   const [tvaRate, setTvaRate] = useState(product?.tvaRate ?? defaults?.tvaRate ?? 20);
   const [priceMode, setPriceMode] = useState<"MARGE_LIBRE" | "PRIX_IMPOSE">(
     product?.priceMode ?? "MARGE_LIBRE"
@@ -230,7 +233,7 @@ export function ProductForm({
 
         <div className="border-t border-gray-100 pt-4">
           <p className="mb-3 text-sm font-semibold text-gray-900">Stock</p>
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-4 gap-4">
             <Field label="Quantité en stock">
               <Input
                 name="stockQuantity"
@@ -254,6 +257,29 @@ export function ProductForm({
                   <option key={u} value={u} />
                 ))}
               </datalist>
+            </Field>
+            <Field
+              label="Unités par pack (achat)"
+              hint={
+                rawUnitPriceHT != null
+                  ? "Prix d'achat recalculé automatiquement ci-dessus."
+                  : "Ex: 6 pour un pack de 6 bouteilles vendu comme un seul produit."
+              }
+            >
+              <Input
+                name="unitsPerPackage"
+                type="number"
+                step="1"
+                min="1"
+                value={unitsPerPackage}
+                onChange={(e) => {
+                  const n = Math.max(1, Number(e.target.value) || 1);
+                  setUnitsPerPackage(n);
+                  if (rawUnitPriceHT != null) {
+                    setPurchaseHT(Math.round(rawUnitPriceHT * n * 10000) / 10000);
+                  }
+                }}
+              />
             </Field>
           </div>
         </div>

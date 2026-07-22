@@ -56,6 +56,7 @@ model Product {
   stockQuantity   Float     @default(0)
   stockAlertSeuil Float     @default(0)
   unit            String    @default("unite")
+  unitsPerPackage Float     @default(1)
 
   actif           Boolean   @default(true)
   createdAt       DateTime  @default(now())
