@@ -1,3 +1,79 @@
+// pdfjs-dist référence `DOMMatrix` (API navigateur) au niveau racine
+// d'un de ses modules internes (utilisé pour le rendu canvas, jamais
+// exercé par notre usage texte seul). En environnement Node.js, cette
+// référence n'existe pas et fait échouer le simple chargement du
+// module — de façon incohérente selon l'environnement d'exécution
+// (reproductible sur les fonctions serverless Vercel, pas toujours
+// en local). On fournit un polyfill minimal avant tout chargement de
+// pdfjs pour lever cette dépendance de façon fiable partout.
+type Matrix6 = [number, number, number, number, number, number];
+
+class DOMMatrixPolyfill {
+  a = 1;
+  b = 0;
+  c = 0;
+  d = 1;
+  e = 0;
+  f = 0;
+
+  constructor(init?: Matrix6 | DOMMatrixPolyfill) {
+    if (Array.isArray(init)) {
+      if (init.length >= 6) [this.a, this.b, this.c, this.d, this.e, this.f] = init;
+    } else if (init) {
+      ({ a: this.a, b: this.b, c: this.c, d: this.d, e: this.e, f: this.f } = init);
+    }
+  }
+
+  multiplySelf(other: DOMMatrixPolyfill) {
+    const { a, b, c, d, e, f } = this;
+    this.a = a * other.a + c * other.b;
+    this.b = b * other.a + d * other.b;
+    this.c = a * other.c + c * other.d;
+    this.d = b * other.c + d * other.d;
+    this.e = a * other.e + c * other.f + e;
+    this.f = b * other.e + d * other.f + f;
+    return this;
+  }
+
+  preMultiplySelf(other: DOMMatrixPolyfill) {
+    const result = new DOMMatrixPolyfill(other).multiplySelf(this);
+    ({ a: this.a, b: this.b, c: this.c, d: this.d, e: this.e, f: this.f } = result);
+    return this;
+  }
+
+  translateSelf(tx = 0, ty = 0) {
+    return this.multiplySelf(new DOMMatrixPolyfill([1, 0, 0, 1, tx, ty]));
+  }
+
+  translate(tx = 0, ty = 0) {
+    return new DOMMatrixPolyfill(this).translateSelf(tx, ty);
+  }
+
+  scaleSelf(sx = 1, sy = sx) {
+    return this.multiplySelf(new DOMMatrixPolyfill([sx, 0, 0, sy, 0, 0]));
+  }
+
+  scale(sx = 1, sy = sx) {
+    return new DOMMatrixPolyfill(this).scaleSelf(sx, sy);
+  }
+
+  invertSelf() {
+    const { a, b, c, d, e, f } = this;
+    const det = a * d - b * c;
+    this.a = d / det;
+    this.b = -b / det;
+    this.c = -c / det;
+    this.d = a / det;
+    this.e = -(this.a * e + this.c * f);
+    this.f = -(this.b * e + this.d * f);
+    return this;
+  }
+}
+
+if (typeof (globalThis as { DOMMatrix?: unknown }).DOMMatrix === "undefined") {
+  (globalThis as { DOMMatrix?: unknown }).DOMMatrix = DOMMatrixPolyfill;
+}
+
 // Import statique (effet de bord) : ce module assigne lui-même
 // `globalThis.pdfjsWorker`, ce que pdfjs-dist utilise en priorité avant
 // de tenter de résoudre dynamiquement le chemin du worker sur disque.
