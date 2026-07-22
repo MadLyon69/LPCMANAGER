@@ -1,5 +1,11 @@
-import path from "path";
-import { pathToFileURL } from "url";
+// Import statique (effet de bord) : ce module assigne lui-même
+// `globalThis.pdfjsWorker`, ce que pdfjs-dist utilise en priorité avant
+// de tenter de résoudre dynamiquement le chemin du worker sur disque.
+// Nécessaire car la résolution par chemin de fichier ne fonctionne pas
+// une fois l'application packagée pour un déploiement serverless
+// (ex: Vercel), où la disposition des fichiers diffère de l'environnement
+// de développement local.
+import "pdfjs-dist/legacy/build/pdf.worker.mjs";
 
 export type PdfInvoiceRow = {
   rawReference: string;
@@ -15,12 +21,6 @@ function parseFrenchNumber(s: string): number {
 
 async function extractPdfLines(buffer: ArrayBuffer): Promise<string[]> {
   const pdfjsLib = await import("pdfjs-dist/legacy/build/pdf.mjs");
-
-  const workerPath = path.join(
-    process.cwd(),
-    "node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs"
-  );
-  pdfjsLib.GlobalWorkerOptions.workerSrc = pathToFileURL(workerPath).href;
 
   const doc = await pdfjsLib.getDocument({
     data: new Uint8Array(buffer),
