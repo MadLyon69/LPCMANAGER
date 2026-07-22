@@ -24,6 +24,7 @@ export default async function NouveauProduitPage({
     <div>
       <PageHeader title="Nouveau produit" />
       <ProductForm
+        key={params.sourceLineId ?? "new"}
         categories={categories}
         suppliers={suppliers}
         action={createProduct}

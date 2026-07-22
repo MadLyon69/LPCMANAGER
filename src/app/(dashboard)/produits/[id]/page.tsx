@@ -34,6 +34,7 @@ export default async function EditProduitPage({
       />
 
       <ProductForm
+        key={product.id}
         product={product}
         categories={categories}
         suppliers={suppliers}
