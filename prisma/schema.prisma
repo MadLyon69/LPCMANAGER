@@ -1,0 +1,164 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum PriceMode {
+  MARGE_LIBRE
+  PRIX_IMPOSE
+}
+
+enum MouvementType {
+  ENTREE_FACTURE
+  AJUSTEMENT
+  INVENTAIRE
+  SORTIE
+}
+
+enum PeriodType {
+  JOUR
+  MOIS
+}
+
+model Category {
+  id             String         @id @default(cuid())
+  nom            String         @unique
+  products       Product[]
+  revenueEntries RevenueEntry[]
+}
+
+model Supplier {
+  id        String    @id @default(cuid())
+  nom       String
+  contact   String?
+  telephone String?
+  email     String?
+  adresse   String?
+  createdAt DateTime  @default(now())
+  products  Product[]
+  invoices  Invoice[]
+}
+
+model Product {
+  id              String    @id @default(cuid())
+  reference       String    @unique
+  designation     String
+  categoryId      String?
+  category        Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  supplierId      String?
+  supplier        Supplier? @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+
+  purchasePriceHT Float
+  tvaRate         Float     @default(20)
+
+  priceMode       PriceMode @default(MARGE_LIBRE)
+  marginRate      Float     @default(30)
+  sellPriceTTC    Float
+
+  stockQuantity   Float     @default(0)
+  stockAlertSeuil Float     @default(0)
+  unit            String    @default("unite")
+  unitsPerPackage Float     @default(1)
+
+  // Contenance (ex: 1.5 pour une bouteille de 1,5 L) utilisée pour afficher
+  // le prix au kilo / au litre sur les étiquettes.
+  contentValue    Float?
+  contentUnit     String?
+
+  actif           Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  priceHistory    PriceHistory[]
+  invoiceLines    InvoiceLine[]
+  stockMovements  StockMovement[]
+
+  @@index([designation])
+}
+
+model Invoice {
+  id          String        @id @default(cuid())
+  supplierId  String?
+  supplier    Supplier?     @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  numero      String?
+  fileName    String?
+  date        DateTime      @default(now())
+  importedAt  DateTime      @default(now())
+  lines       InvoiceLine[]
+}
+
+model InvoiceLine {
+  id                 String   @id @default(cuid())
+  invoiceId          String
+  invoice            Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  rawReference       String?
+  rawDesignation     String
+  quantity           Float
+  purchasePriceHT    Float
+  tvaRate            Float?
+
+  productId          String?
+  product            Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  previousPriceHT    Float?
+  priceVariationPct  Float?
+
+  resolved           Boolean  @default(false)
+  createdAt          DateTime @default(now())
+}
+
+model PriceHistory {
+  id              String   @id @default(cuid())
+  productId       String
+  product         Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  purchasePriceHT Float
+  sellPriceTTC    Float
+  source          String   @default("manuel")
+  date            DateTime @default(now())
+
+  @@index([productId, date])
+}
+
+model StockMovement {
+  id        String        @id @default(cuid())
+  productId String
+  product   Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
+  type      MouvementType
+  quantity  Float
+  note      String?
+  date      DateTime      @default(now())
+
+  @@index([productId, date])
+}
+
+model Settings {
+  id                Int   @id @default(1)
+  labelWidthMm      Float @default(30)
+  labelHeightMm     Float @default(20)
+  labelColumns      Int   @default(3)
+  defaultTvaRate    Float @default(20)
+  defaultMarginRate Float @default(30)
+}
+
+model RevenueEntry {
+  id         String     @id @default(cuid())
+  // Pour une saisie mensuelle, `date` est le 1er jour du mois concerné.
+  date       DateTime   @db.Date
+  periodType PeriodType @default(JOUR)
+  categoryId String?
+  category   Category?  @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  // Laisser vide (null) pour une saisie globale non ventilée par TVA.
+  tvaRate    Float?
+  amountTTC  Float
+  note       String?
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  @@index([date])
+  @@index([categoryId])
+}
